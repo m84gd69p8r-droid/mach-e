@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1a1a2e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="Mach-E charge planner for the Milford IA to Omaha NE route">
+  <title>Mach-E Charge Planner | Milford ↔ Omaha</title>
+  <style>
+    :root {
+      --bg: #0f0f1a;
+      --card: #1a1a2e;
+      --accent: #e94560;
+      --accent2: #0f3460;
+      --text: #eaeaea;
+      --muted: #a0a0b0;
+      --success: #4ade80;
+      --warning: #fbbf24;
+      --danger: #f87171;
+      --border: #2a2a40;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+      padding-bottom: 40px;
+    }
+    header {
+      background: linear-gradient(135deg, var(--accent2), #16213e);
+      padding: 20px 16px 16px;
+      text-align: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    }
+    header h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    header p {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+    .container {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+      border: 1px solid var(--border);
+    }
+    .card h2 {
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 14px;
+      font-weight: 600;
+    }
+    label {
+      display: block;
+      font-size: 0.9rem;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+    .input-row {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .input-row > div { flex: 1; }
+    input[type="number"], select {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #12121f;
+      color: var(--text);
+      font-size: 1rem;
+      -webkit-appearance: none;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .slider-group {
+      margin-bottom: 16px;
+    }
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .slider-value {
+      font-weight: 700;
+      color: var(--accent);
+      font-size: 1.1rem;
+    }
+    input[type="range"] {
+      width: 100%;
+      height: 8px;
+      -webkit-appearance: none;
+      background: #2a2a40;
+      border-radius: 4px;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 24px;
+      height: 24px;
+      background: var(--accent);
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(233,69,96,0.4);
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent), #c73e54);
+      color: white;
+      font-size: 1.05rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: transform 0.15s, opacity 0.15s;
+    }
+    .btn:active { transform: scale(0.98); opacity: 0.9; }
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      margin-top: 10px;
+      padding: 12px;
+      font-size: 0.9rem;
+    }
+    .result { display: none; }
+    .result.show { display: block; }
+    .big-number {
+      font-size: 2.4rem;
+      font-weight: 800;
+      text-align: center;
+      line-height: 1.1;
+    }
+    .big-label {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 16px;
+    }
+    .status {
+      text-align: center;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      font-size: 1rem;
+    }
+    .status.ok { background: rgba(74,222,128,0.15); color: var(--success); }
+    .status.warn { background: rgba(251,191,36,0.15); color: var(--warning); }
+    .status.bad { background: rgba(248,113,113,0.15); color: var(--danger); }
+    .metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .metric {
+      background: #12121f;
+      border-radius: 10px;
+      padding: 12px;
+      text-align: center;
+    }
+    .metric .val {
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+    .metric .lbl {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .advice {
+      margin-top: 16px;
+      padding: 14px;
+      background: #12121f;
+      border-radius: 10px;
+      font-size: 0.92rem;
+      border-left: 4px solid var(--accent);
+    }
+    .advice ul {
+      margin: 8px 0 0 18px;
+    }
+    .advice li { margin-bottom: 6px; }
+    .chargers { margin-top: 4px; }
+    .charger {
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.88rem;
+    }
+    .charger:last-child { border-bottom: none; }
+    .charger-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .charger-name { font-weight: 600; }
+    .charger-meta { color: var(--muted); font-size: 0.8rem; margin-top: 2px; }
+    .badge {
+      font-size: 0.68rem;
+      padding: 3px 8px;
+      border-radius: 20px;
+      background: var(--accent2);
+      color: #a0c4ff;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .badge.strong { background: rgba(74,222,128,0.2); color: var(--success); }
+    .badge.warn { background: rgba(251,191,36,0.15); color: var(--warning); }
+    .section-note {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 10px;
+      line-height: 1.4;
+    }
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      font-size: 0.9rem;
+    }
+    .toggle-row input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+    }
+    footer {
+      text-align: center;
+      padding: 20px 16px;
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
+    .note {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 8px;
+      line-height: 1.4;
+    }
+    .advanced {
+      display: none;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+    .advanced.show { display: block; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>⚡ Mach-E Charge Planner</h1>
+    <p>Milford, IA ↔ Omaha, NE · Extended Range AWD</p>
+  </header>
+
+  <div class="container">
+    <div class="card">
+      <h2>Trip Settings</h2>
+      
+      <div class="slider-group">
+        <div class="slider-header">
+          <label>Current Battery %</label>
+          <span class="slider-value" id="socVal">85%</span>
+        </div>
+        <input type="range" id="soc" min="10" max="100" value="85" step="1">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <label>Desired Arrival %</label>
+          <span class="slider-value" id="arriveVal">20%</span>
+        </div>
+        <input type="range" id="arrive" min="5" max="40" value="20" step="1">
+      </div>
+
+      <div class="input-row">
+        <div>
+          <label>Direction</label>
+          <select id="direction">
+            <option value="toOmaha">Milford → Omaha</option>
+            <option value="toMilford">Omaha → Milford</option>
+          </select>
+        </div>
+        <div>
+          <label>Distance (mi)</label>
+          <input type="number" id="distance" value="195" min="150" max="250" step="1">
+        </div>
+      </div>
+
+      <div class="input-row">
+        <div>
+          <label>Outside Temp (°F)</label>
+          <input type="number" id="temp" value="35" min="-20" max="100" step="1">
+        </div>
+        <div>
+          <label>Avg Speed (mph)</label>
+          <input type="number" id="speed" value="70" min="50" max="80" step="1">
+        </div>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px">
+        <button type="button" class="btn btn-secondary" id="btnWeather" style="padding:10px 14px;font-size:0.9rem;margin:0" onclick="fetchWeather()">Use current weather</button>
+        <select id="weatherLoc" style="padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:#12121f;color:var(--text);font-size:0.9rem">
+          <option value="mid">Route midpoint</option>
+          <option value="milford">Milford, IA</option>
+          <option value="omaha">Omaha, NE</option>
+        </select>
+      </div>
+      <div id="weatherStatus" class="note" style="margin-top:-8px;margin-bottom:12px;display:none"></div>
+
+      <div class="toggle-row">
+        <input type="checkbox" id="useCustomEff">
+        <label for="useCustomEff" style="margin:0">Use my real-world efficiency</label>
+      </div>
+
+      <div class="advanced" id="customEffBox">
+        <label>Your observed mi/kWh (highway)</label>
+        <input type="number" id="customEff" value="2.8" min="1.5" max="4.0" step="0.05">
+        <div class="note">Tip: Check the trip computer after a highway drive in similar conditions. Typical ER AWD is 2.7–3.1 mi/kWh at 70 mph in mild weather.</div>
+      </div>
+
+      <div class="note">Default distance ~195 miles (common US-71 / I-29 style routes). Adjust if yours differs.</div>
+
+      <button class="btn" onclick="calculate()">Calculate Charge Need</button>
+      <button class="btn btn-secondary" onclick="toggleAdvanced()">Show / hide efficiency tip</button>
+    </div>
+
+    <div class="card result" id="resultCard">
+      <h2>Estimate</h2>
+      
+      <div class="big-number" id="neededPct">—</div>
+      <div class="big-label">Minimum starting SOC recommended</div>
+
+      <div class="status" id="statusBox">—</div>
+
+      <div class="metrics">
+        <div class="metric">
+          <div class="val" id="effVal">—</div>
+          <div class="lbl">Est. Efficiency</div>
+        </div>
+        <div class="metric">
+          <div class="val" id="energyVal">—</div>
+          <div class="lbl">Energy for Trip</div>
+        </div>
+        <div class="metric">
+          <div class="val" id="rangeVal">—</div>
+          <div class="lbl">Est. Full Range</div>
+        </div>
+        <div class="metric">
+          <div class="val" id="bufferVal">—</div>
+          <div class="lbl">Arrival Buffer</div>
+        </div>
+      </div>
+
+      <div class="advice" id="adviceBox"></div>
+    </div>
+
+    <div class="card">
+      <h2>Key Chargers Along the Corridor</h2>
+      <div class="chargers">
+        <div class="charger">
+          <div class="charger-top">
+            <div>
+              <div class="charger-name">Home (Milford & Omaha)</div>
+              <div class="charger-meta">Level 2 — best and cheapest option both ends</div>
+            </div>
+            <span class="badge strong">Preferred</span>
+          </div>
+        </div>
+
+        <div class="charger">
+          <div class="charger-top">
+            <div>
+              <div class="charger-name">Storm Lake Hy-Vee (ChargeLab / Shell Recharge)</div>
+              <div class="charger-meta">1250 N Lake Ave · DC fast CCS + CHAdeMO · Listed ~50–150 kW · More direct route</div>
+              <div class="charger-meta" style="margin-top:4px">
+                <a href="https://www.plugshare.com/directory/us/iowa/storm-lake" target="_blank" rel="noopener">Open in PlugShare (Storm Lake)</a>
+                · Personal note: <span class="pers-kw" data-id="stormlake">—</span> kW
+              </div>
+            </div>
+            <span class="badge warn">Check status</span>
+          </div>
+        </div>
+
+        <div class="charger">
+          <div class="charger-top">
+            <div>
+              <div class="charger-name">Cherokee Hy-Vee (ChargeLab / Shell Recharge)</div>
+              <div class="charger-meta">1300 N 2nd St · DC fast CCS + CHAdeMO · Listed up to ~150 kW · Direct route</div>
+              <div class="charger-meta" style="margin-top:4px">
+                <a href="https://www.plugshare.com/directory/us/iowa/cherokee" target="_blank" rel="noopener">Open in PlugShare (Cherokee)</a>
+                · Personal note: <span class="pers-kw" data-id="cherokee">—</span> kW
+              </div>
+            </div>
+            <span class="badge warn">Check status</span>
+          </div>
+        </div>
+
+        <div class="charger">
+          <div class="charger-top">
+            <div>
+              <div class="charger-name">Early Casey’s (ChargeLab / Shell Recharge)</div>
+              <div class="charger-meta">2245 Karr Ave · DC fast CCS + CHAdeMO · Officially listed 150 kW, real-world often ~50 kW · Direct corridor</div>
+              <div class="charger-meta" style="margin-top:4px">
+                <a href="https://www.plugshare.com/directory/us/iowa/early" target="_blank" rel="noopener">Open in PlugShare (Early)</a>
+                · Personal note: <span class="pers-kw" data-id="early">50</span> kW
+              </div>
+            </div>
+            <span class="badge warn">Check status</span>
+          </div>
+        </div>
+
+        <div class="charger">
+          <div class="charger-top">
+            <div>
+              <div class="charger-name">Sioux City Ford</div>
+              <div class="charger-meta">3601 Singing Hills Blvd · Multiple DC fast (EV Connect / Ford) · Good midpoint option</div>
+            </div>
+            <span class="badge">DC Fast</span>
+          </div>
+        </div>
+
+        <div class="charger">
+          <div class="charger-top">
+            <div>
+              <div class="charger-name">Electrify America – Fareway (Sioux City)</div>
+              <div class="charger-meta">4040 War Eagle Drive · Up to 350 kW CCS · Strong option ~halfway</div>
+            </div>
+            <span class="badge">350 kW</span>
+          </div>
+        </div>
+
+        <div class="charger">
+          <div class="charger-top">
+            <div>
+              <div class="charger-name">Tesla Supercharger – Southern Hills (Sioux City)</div>
+              <div class="charger-meta">4727 Southern Hills Dr · NACS (adapter needed for many Mach-Es)</div>
+            </div>
+            <span class="badge">Tesla</span>
+          </div>
+        </div>
+
+        <div class="charger">
+          <div class="charger-top">
+            <div>
+              <div class="charger-name">Le Mars Kwik Star</div>
+              <div class="charger-meta">321 5th Ave SW · DC fast (lower power) · Useful if needed</div>
+            </div>
+            <span class="badge warn">Moderate</span>
+          </div>
+        </div>
+
+        <div class="charger">
+          <div class="charger-top">
+            <div>
+              <div class="charger-name">Council Bluffs – Electrify America @ Walmart</div>
+              <div class="charger-meta">3201 Manawa Centre Dr · Up to 350 kW · Excellent arrival / backup stop</div>
+            </div>
+            <span class="badge strong">Excellent</span>
+          </div>
+        </div>
+
+        <div class="charger">
+          <div class="charger-top">
+            <div>
+              <div class="charger-name">Council Bluffs – Tesla Supercharger (Metro Crossing)</div>
+              <div class="charger-meta">3815 Metro Drive · High power · Adapter may be required</div>
+            </div>
+            <span class="badge">Tesla</span>
+          </div>
+        </div>
+
+        <div class="charger">
+          <div class="charger-top">
+            <div>
+              <div class="charger-name">McMullen Ford / Ford Charge (Council Bluffs)</div>
+              <div class="charger-meta">3401 S Expressway St · Multiple DC fast · Convenient near I-29/I-80</div>
+            </div>
+            <span class="badge">Ford</span>
+          </div>
+        </div>
+
+        <div class="charger">
+          <div class="charger-top">
+            <div>
+              <div class="charger-name">Omaha metro (many options)</div>
+              <div class="charger-meta">Walmart, Electrify America, eVgo, ChargePoint, Tesla Superchargers throughout the city</div>
+            </div>
+            <span class="badge strong">Abundant</span>
+          </div>
+        </div>
+      </div>
+      <div class="section-note">
+        <strong>Status note (as of early Nov 2026):</strong> Storm Lake Hy-Vee, Cherokee Hy-Vee, and Early Casey’s (all ChargeLab / Shell Recharge) sit on more direct routes. Storm Lake has the most check-ins. Public data shows mixed port availability. <strong>Always check PlugShare</strong> (links above open the city directory — pick the station) right before leaving. Sioux City and Council Bluffs remain the stronger high-power backups.
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="card-title">Your real-world kW notes</div>
+        <p style="font-size:0.9rem;color:var(--muted);margin:0 0 12px">These stick on this device. Update anytime from your experience (e.g. Early often ~50 kW).</p>
+        <div style="display:grid;gap:10px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:0.95rem">
+            Storm Lake Hy-Vee
+            <input type="number" id="kw-stormlake" min="0" max="350" step="5" placeholder="kW" style="width:80px;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)">
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:0.95rem">
+            Cherokee Hy-Vee
+            <input type="number" id="kw-cherokee" min="0" max="350" step="5" placeholder="kW" style="width:80px;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)">
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:0.95rem">
+            Early Casey’s
+            <input type="number" id="kw-early" min="0" max="350" step="5" placeholder="kW" value="50" style="width:80px;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)">
+          </label>
+        </div>
+        <button type="button" id="save-kw" style="margin-top:12px;padding:8px 14px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-weight:600;cursor:pointer">Save notes</button>
+        <span id="kw-saved" style="margin-left:10px;font-size:0.85rem;color:var(--good);display:none">Saved</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Practical Tips for This Route</h2>
+      <div class="advice" style="border-left-color: var(--accent2); margin-top:0">
+        <ul style="margin-top:0">
+          <li><strong>Home charging both ends</strong> is the winning strategy — leave with enough to arrive at 15–25% and top up overnight.</li>
+          <li>In cold weather, precondition the cabin and battery while still plugged in. This helps range significantly.</li>
+          <li>Highway speeds above 70–72 mph hurt efficiency noticeably. 65–70 is a good balance.</li>
+          <li>Sioux City is the most useful midpoint if you ever need a top-up. Council Bluffs is excellent as a backup near Omaha.</li>
+          <li>Keep a CCS adapter (and NACS if you use Tesla stations) in the car.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Estimates only · Real range varies with wind, hills, HVAC, tire pressure & driving style.<br>
+    Extended Range AWD · ~91 kWh usable · Calibrate with your own mi/kWh for best accuracy.
+  </footer>
+
+  <script>
+    const USABLE_KWH = 91;
+    const BASE_MI_PER_KWH = 2.95; // mild weather ~70 mph baseline
+
+    const socSlider = document.getElementById('soc');
+    const arriveSlider = document.getElementById('arrive');
+    const socVal = document.getElementById('socVal');
+    const arriveVal = document.getElementById('arriveVal');
+    const useCustom = document.getElementById('useCustomEff');
+    const customBox = document.getElementById('customEffBox');
+
+    socSlider.addEventListener('input', () => socVal.textContent = socSlider.value + '%');
+    arriveSlider.addEventListener('input', () => arriveVal.textContent = arriveSlider.value + '%');
+    useCustom.addEventListener('change', () => {
+      customBox.classList.toggle('show', useCustom.checked);
+    });
+
+    function getTempFactor(tempF) {
+      if (tempF >= 60) return 1.00;
+      if (tempF >= 45) return 0.94;
+      if (tempF >= 30) return 0.85;
+      if (tempF >= 15) return 0.75;
+      if (tempF >= 0)  return 0.66;
+      return 0.58;
+    }
+
+    function getSpeedFactor(speed) {
+      if (speed <= 60) return 1.08;
+      if (speed <= 65) return 1.04;
+      if (speed <= 70) return 1.00;
+      if (speed <= 75) return 0.93;
+      return 0.86;
+    }
+
+    function toggleAdvanced() {
+      customBox.classList.toggle('show');
+      if (customBox.classList.contains('show')) {
+        useCustom.checked = true;
+      }
+    }
+
+    function calculate() {
+      const currentSoc = parseFloat(socSlider.value) / 100;
+      const arriveSoc = parseFloat(arriveSlider.value) / 100;
+      const distance = parseFloat(document.getElementById('distance').value) || 195;
+      const temp = parseFloat(document.getElementById('temp').value) || 35;
+      const speed = parseFloat(document.getElementById('speed').value) || 70;
+
+      let eff;
+      if (useCustom.checked) {
+        const custom = parseFloat(document.getElementById('customEff').value);
+        eff = (custom > 0) ? custom : BASE_MI_PER_KWH;
+      } else {
+        eff = BASE_MI_PER_KWH * getTempFactor(temp) * getSpeedFactor(speed);
+      }
+
+      const energyNeeded = distance / eff;
+      const fullRange = USABLE_KWH * eff;
+      const usableForTrip = (currentSoc - arriveSoc) * USABLE_KWH;
+      const bufferMiles = (usableForTrip - energyNeeded) * eff;
+
+      const minStartSoc = arriveSoc + (energyNeeded / USABLE_KWH);
+      const minStartPct = Math.ceil(minStartSoc * 100);
+
+      document.getElementById('neededPct').textContent = minStartPct + '%';
+      document.getElementById('effVal').textContent = eff.toFixed(2) + ' mi/kWh';
+      document.getElementById('energyVal').textContent = energyNeeded.toFixed(0) + ' kWh';
+      document.getElementById('rangeVal').textContent = Math.round(fullRange) + ' mi';
+      document.getElementById('bufferVal').textContent = (bufferMiles >= 0 ? '+' : '') + Math.round(bufferMiles) + ' mi';
+
+      const statusBox = document.getElementById('statusBox');
+      const adviceBox = document.getElementById('adviceBox');
+      let statusClass, statusText, advice;
+
+      if (currentSoc * 100 >= minStartPct + 8) {
+        statusClass = 'ok';
+        statusText = '✓ Comfortable — no en-route charge needed';
+        advice = `<strong>You're in good shape.</strong>
+          <ul>
+            <li>Leave with your current ${Math.round(currentSoc*100)}% charge.</li>
+            <li>Expect to arrive around ${Math.max(5, Math.round((currentSoc*USABLE_KWH - energyNeeded)/USABLE_KWH*100))} % remaining.</li>
+            <li>Top up at home on arrival for the return or next day.</li>
+          </ul>`;
+      } else if (currentSoc * 100 >= minStartPct) {
+        statusClass = 'warn';
+        statusText = '⚠ Tight margin — little room for surprises';
+        advice = `<strong>Doable, but thin buffer.</strong>
+          <ul>
+            <li>Consider charging a bit more before leaving (aim for ${minStartPct + 10}%+).</li>
+            <li>Drive a bit slower if conditions allow and precondition while plugged in.</li>
+            <li>Sioux City or Council Bluffs are solid backup options if range drops faster than expected.</li>
+          </ul>`;
+      } else {
+        statusClass = 'bad';
+        statusText = '✗ Not enough — charge more or plan a stop';
+        const needMore = minStartPct - Math.round(currentSoc * 100);
+        advice = `<strong>You need more energy.</strong>
+          <ul>
+            <li>Charge at least another <strong>${needMore}%</strong> at home before departing (target ≥ ${minStartPct}%).</li>
+            <li>Or plan a short DC fast top-up (Sioux City is the best midpoint; Council Bluffs near Omaha).</li>
+            <li>In cold weather, precondition while still plugged in — it makes a real difference.</li>
+          </ul>`;
+      }
+
+      statusBox.className = 'status ' + statusClass;
+      statusBox.textContent = statusText;
+      adviceBox.innerHTML = advice;
+
+      document.getElementById('resultCard').classList.add('show');
+      document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // Initial calculation with defaults
+    calculate();
+  
+
+// Live weather via Open-Meteo (no API key)
+async function fetchWeather() {
+  const status = document.getElementById('weatherStatus');
+  const btn = document.getElementById('btnWeather');
+  const loc = document.getElementById('weatherLoc').value;
+  const coords = {
+    milford: { lat: 43.327, lon: -95.150, name: 'Milford, IA' },
+    omaha:   { lat: 41.257, lon: -95.940, name: 'Omaha, NE' },
+    mid:     { lat: 42.30,  lon: -95.55,  name: 'route midpoint' }
+  }[loc] || { lat: 42.30, lon: -95.55, name: 'route midpoint' };
+
+  status.style.display = 'block';
+  status.textContent = 'Fetching weather…';
+  if (btn) btn.disabled = true;
+
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current=temperature_2m,wind_speed_10m,weather_code&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=America%2FChicago`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Network error');
+    const data = await res.json();
+    const t = Math.round(data.current.temperature_2m);
+    const wind = Math.round(data.current.wind_speed_10m);
+    document.getElementById('temp').value = t;
+
+    const codes = {
+      0: 'Clear', 1: 'Mainly clear', 2: 'Partly cloudy', 3: 'Overcast',
+      45: 'Fog', 48: 'Icy fog',
+      51: 'Light drizzle', 53: 'Drizzle', 55: 'Heavy drizzle',
+      61: 'Light rain', 63: 'Rain', 65: 'Heavy rain',
+      71: 'Light snow', 73: 'Snow', 75: 'Heavy snow',
+      80: 'Rain showers', 81: 'Rain showers', 82: 'Heavy showers',
+      85: 'Snow showers', 86: 'Heavy snow showers',
+      95: 'Thunderstorm'
+    };
+    const cond = codes[data.current.weather_code] || '—';
+
+    status.innerHTML = `Updated: <strong>${t}°F</strong>, wind ${wind} mph, ${cond} <span style="color:var(--muted)">(${coords.name})</span>`;
+    // Optional: slight efficiency hint for strong headwind could be added later
+  } catch (err) {
+    status.textContent = 'Could not fetch weather. Check connection and try again, or enter temp manually.';
+    console.warn(err);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+// Personal kW notes
+(function() {
+  const ids = ['stormlake', 'cherokee', 'early'];
+  function load() {
+    ids.forEach(id => {
+      const val = localStorage.getItem('machE_kw_' + id);
+      const input = document.getElementById('kw-' + id);
+      const span = document.querySelector('.pers-kw[data-id="' + id + '"]');
+      if (input && val) input.value = val;
+      if (span) span.textContent = val || (id === 'early' ? '50' : '—');
+    });
+  }
+  function save() {
+    ids.forEach(id => {
+      const input = document.getElementById('kw-' + id);
+      if (input) {
+        const v = input.value.trim();
+        if (v) localStorage.setItem('machE_kw_' + id, v);
+        else localStorage.removeItem('machE_kw_' + id);
+        const span = document.querySelector('.pers-kw[data-id="' + id + '"]');
+        if (span) span.textContent = v || (id === 'early' ? '50' : '—');
+      }
+    });
+    const msg = document.getElementById('kw-saved');
+    if (msg) { msg.style.display = 'inline'; setTimeout(() => msg.style.display = 'none', 1500); }
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    load();
+    const btn = document.getElementById('save-kw');
+    if (btn) btn.addEventListener('click', save);
+  });
+})();
+
+</script>
+</body>
+</html>
